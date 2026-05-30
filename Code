@@ -1,0 +1,302 @@
+/*
+ * ============================================================
+ *        VEHICLE RENTAL SYSTEM - C++ Console Application
+ * ============================================================
+ */
+
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <vector>
+#include <limits>
+
+using namespace std;
+
+// ─── Vehicle Structure ────────────────────────────────────────
+struct Vehicle {
+    int    id;
+    string brand;
+    string model;
+    string type;       // Car, Bike, Truck, Van
+    double ratePerDay;
+    bool   isAvailable;
+};
+
+// ─── Rental Record Structure ──────────────────────────────────
+struct Rental {
+    int    rentalId;
+    int    vehicleId;
+    string customerName;
+    int    days;
+    double totalCost;
+};
+
+// ─── Global Data ──────────────────────────────────────────────
+vector<Vehicle> fleet = {
+    {1, "Toyota",  "Camry",    "Car",   2500.00, true},
+    {2, "Honda",   "Civic",    "Car",   3550.00, true},
+    {3, "Ford",    "F-150",    "Truck", 4550.00, true},
+    {4, "Yamaha",  "MT-07",    "Bike",  3525.00, true},
+    {5, "Honda",   "Sprinter", "Van",   3670.00, true},
+    {6, "BMW",     "X5",       "Car",  1110.00, true},
+    {7, "Ducati",  "Monster",  "Bike",  4540.00, true},
+    {8, "Chevrolet","Express", "Van",   2265.00, true},
+};
+
+vector<Rental> rentals;
+int nextRentalId = 1001;
+
+// ─── Helpers ──────────────────────────────────────────────────
+void clearInput() {
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
+void printLine(char c = '-', int width = 58) {
+    cout << string(width, c) << "\n";
+}
+
+void printHeader(const string& title) {
+    printLine('=');
+    cout << "  " << title << "\n";
+    printLine('=');
+}
+
+// ─── Display All Vehicles ─────────────────────────────────────
+void showAllVehicles() {
+    printHeader("VEHICLE FLEET");
+    cout << left
+         << setw(4)  << "ID"
+         << setw(12) << "Brand"
+         << setw(12) << "Model"
+         << setw(8)  << "Type"
+         << setw(12) << "Rate/Day"
+         << setw(10) << "Status"
+         << "\n";
+    printLine();
+    for (const auto& v : fleet) {
+        cout << left
+             << setw(4)  << v.id
+             << setw(12) << v.brand
+             << setw(12) << v.model
+             << setw(8)  << v.type
+             << "Php " << setw(11) << fixed << setprecision(2) << v.ratePerDay
+             << (v.isAvailable ? "Available" : "Rented")
+             << "\n";
+    }
+    printLine();
+}
+
+// ─── Display Available Vehicles ───────────────────────────────
+void showAvailableVehicles() {
+    printHeader("AVAILABLE VEHICLES");
+    cout << left
+         << setw(4)  << "ID"
+         << setw(12) << "Brand"
+         << setw(12) << "Model"
+         << setw(8)  << "Type"
+         << setw(12) << "Rate/Day"
+         << "\n";
+    printLine();
+    bool any = false;
+    for (const auto& v : fleet) {
+        if (v.isAvailable) {
+            cout << left
+                 << setw(4)  << v.id
+                 << setw(12) << v.brand
+                 << setw(12) << v.model
+                 << setw(8)  << v.type
+                 << "Php " << fixed << setprecision(2) << v.ratePerDay
+                 << "\n";
+            any = true;
+        }
+    }
+    if (!any) cout << "  No vehicles available right now.\n";
+    printLine();
+}
+
+// ─── Rent a Vehicle ───────────────────────────────────────────
+void rentVehicle() {
+    printHeader("RENT A VEHICLE");
+    showAvailableVehicles();
+
+    int id;
+    cout << "Enter Vehicle ID to rent (0 to cancel): ";
+    cin >> id;
+    if (id == 0) return;
+
+    Vehicle* vPtr = nullptr;
+    for (auto& v : fleet)
+        if (v.id == id) { vPtr = &v; break; }
+
+    if (!vPtr) {
+        cout << "  [!] Vehicle ID not found.\n";
+        return;
+    }
+    if (!vPtr->isAvailable) {
+        cout << "  [!] Vehicle is currently rented out.\n";
+        return;
+    }
+
+    clearInput();
+    string name;
+    cout << "Enter your name: ";
+    getline(cin, name);
+
+    int days;
+    cout << "Enter number of rental days: ";
+    cin >> days;
+    if (days <= 0) {
+        cout << "  [!] Invalid number of days.\n";
+        return;
+    }
+
+    double total = days * vPtr->ratePerDay;
+
+    Rental r;
+    r.rentalId     = nextRentalId++;
+    r.vehicleId    = id;
+    r.customerName = name;
+    r.days         = days;
+    r.totalCost    = total;
+
+    rentals.push_back(r);
+    vPtr->isAvailable = false;
+
+    printLine('*');
+    cout << "  RENTAL CONFIRMED!\n";
+    cout << "  Rental ID   : " << r.rentalId << "\n";
+    cout << "  Customer    : " << name << "\n";
+    cout << "  Vehicle     : " << vPtr->brand << " " << vPtr->model << "\n";
+    cout << "  Days        : " << days << "\n";
+    cout << "  Total Cost  : Php" << fixed << setprecision(2) << total << "\n";
+    printLine('*');
+}
+
+// ─── Return a Vehicle ─────────────────────────────────────────
+void returnVehicle() {
+    printHeader("RETURN A VEHICLE");
+    cout << "Enter Rental ID: ";
+    int rid;
+    cin >> rid;
+
+    Rental* rPtr = nullptr;
+    for (auto& r : rentals)
+        if (r.rentalId == rid) { rPtr = &r; break; }
+
+    if (!rPtr) {
+        cout << "  [!] Rental ID not found.\n";
+        return;
+    }
+
+    // Find and free the vehicle
+    for (auto& v : fleet) {
+        if (v.id == rPtr->vehicleId) {
+            v.isAvailable = true;
+            cout << "\n  Vehicle returned: " << v.brand << " " << v.model << "\n";
+            cout << "  Customer       : " << rPtr->customerName << "\n";
+            cout << "  Total paid     : Php" << fixed << setprecision(2) << rPtr->totalCost << "\n";
+            break;
+        }
+    }
+
+    // Remove rental record
+    for (auto it = rentals.begin(); it != rentals.end(); ++it) {
+        if (it->rentalId == rid) { rentals.erase(it); break; }
+    }
+
+    cout << "  Thank you! Vehicle successfully returned.\n";
+    printLine();
+}
+
+// ─── View Active Rentals ──────────────────────────────────────
+void viewRentals() {
+    printHeader("ACTIVE RENTALS");
+    if (rentals.empty()) {
+        cout << "  No active rentals.\n";
+        printLine();
+        return;
+    }
+    cout << left
+         << setw(10) << "Rental ID"
+         << setw(18) << "Customer"
+         << setw(14) << "Vehicle"
+         << setw(6)  << "Days"
+         << setw(12) << "Total Cost"
+         << "\n";
+    printLine();
+    for (const auto& r : rentals) {
+        string vName;
+        for (const auto& v : fleet)
+            if (v.id == r.vehicleId) { vName = v.brand + " " + v.model; break; }
+        cout << left
+             << setw(10) << r.rentalId
+             << setw(18) << r.customerName
+             << setw(14) << vName
+             << setw(6)  << r.days
+             << "Php" << fixed << setprecision(2) << r.totalCost
+             << "\n";
+    }
+    printLine();
+}
+
+// ─── Search Vehicle by Type ───────────────────────────────────
+void searchByType() {
+    printHeader("SEARCH BY TYPE");
+    cout << "  Types: Car | Bike | Truck | Van\n";
+    cout << "Enter type: ";
+    clearInput();
+    string type;
+    getline(cin, type);
+
+    bool found = false;
+    cout << "\n  Results for \"" << type << "\":\n";
+    printLine();
+    for (const auto& v : fleet) {
+        if (v.type == type) {
+            cout << "  [" << v.id << "] " << v.brand << " " << v.model
+                 << "  Php" << fixed << setprecision(2) << v.ratePerDay << "/day"
+                 << "  (" << (v.isAvailable ? "Available" : "Rented") << ")\n";
+            found = true;
+        }
+    }
+    if (!found) cout << "  No vehicles of that type found.\n";
+    printLine();
+}
+
+// ─── Main Menu ────────────────────────────────────────────────
+void showMenu() {
+    printLine('=');
+    cout << "       WELCOME TO SIGMA VEHICLE RENTALS!\n";
+    printLine('=');
+    cout << "  [1] View All Vehicles\n";
+    cout << "  [2] View Available Vehicles\n";
+    cout << "  [3] Rent a Vehicle\n";
+    cout << "  [4] Return a Vehicle\n";
+    cout << "  [5] View Active Rentals\n";
+    cout << "  [6] Search by Vehicle Type\n";
+    cout << "  [0] Exit\n";
+    printLine();
+    cout << "  Your choice: ";
+}
+
+int main() {
+    int choice;
+    do {
+        showMenu();
+        cin >> choice;
+        cout << "\n";
+        switch (choice) {
+            case 1: showAllVehicles();    break;
+            case 2: showAvailableVehicles(); break;
+            case 3: rentVehicle();        break;
+            case 4: returnVehicle();      break;
+            case 5: viewRentals();        break;
+            case 6: searchByType();       break;
+            case 0: cout << "  Goodbye! Drive safe.\n\n"; break;
+            default: cout << "  [!] Invalid choice. Try again.\n\n";
+        }
+    } while (choice != 0);
+
+    return 0;
+}
